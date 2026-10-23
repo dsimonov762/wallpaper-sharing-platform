@@ -1,0 +1,6 @@
+# Always use LF in the repo and in checkouts: shell scripts and Dockerfiles
+# break inside Linux containers if Windows turns their line endings into CRLF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary

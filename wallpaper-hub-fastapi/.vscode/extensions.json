@@ -1,0 +1,19 @@
+{
+    "recommendations": [
+        "streetsidesoftware.code-spell-checker",
+        "ms-azuretools.vscode-containers",
+        "ms-azuretools.vscode-docker",
+        "tamasfe.even-better-toml",
+        "graphql.vscode-graphql-syntax",
+        "pkief.material-icon-theme",
+        "mongodb.mongodb-vscode",
+        "ms-python.vscode-pylance",
+        "ms-python.python",
+        "ms-python.debugpy",
+        "ms-python.vscode-python-envs",
+        "charliermarsh.ruff",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "redhat.vscode-yaml"
+    ]
+}

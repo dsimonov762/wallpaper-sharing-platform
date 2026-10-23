@@ -1,0 +1,1 @@
+"""Wallpaper Hub media-service."""

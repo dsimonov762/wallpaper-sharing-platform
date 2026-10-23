@@ -1,0 +1,60 @@
+[project]
+name = "media-service"
+version = "0.1.0"
+description = "Wallpaper Hub media-service (FastAPI)"
+authors = [
+    { name = "Dmytro Honchar", email = "dhonchar972@outlook.com" }
+]
+requires-python = ">=3.14.5"
+dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.32.0",
+    "fastapi>=0.159.1",
+    "pydantic-settings>=2.16.1",
+    "sqlalchemy[asyncio]>=2.1.4",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/media"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Integration tests need the docker compose infrastructure, so `pytest` skips them by default.
+# Run them with: just media-test-integration   (= pytest -m integration)
+addopts = "-m 'not integration'"
+markers = ["integration: needs the docker compose infrastructure (Postgres) to be running"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/F = pycodestyle + pyflakes, I = import sorting, UP = modern syntax, B = likely bugs,
+# SIM = simplifications, ASYNC = async pitfalls, S = security, N = naming, C4 = comprehensions,
+# PT = pytest style, RUF = Ruff extras, FAST = FastAPI-specific checks.
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "S", "N", "C4", "PT", "RUF", "FAST"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105"]  # `assert` is how pytest works; fake passwords are fine
+"migrations/**" = ["E501"]  # generated code
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+pythonVersion = "3.14.5"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",  # FastAPI's TestClient needs it
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.1",
+]

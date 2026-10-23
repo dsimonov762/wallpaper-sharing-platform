@@ -1,0 +1,158 @@
+# Task runner. Install with: winget install Casey.Just      List tasks: just
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+
+compose := "docker compose -f infra/docker-compose.yml"
+
+default:
+    @just --list
+
+# ---- infrastructure (docker compose) ----------------------------------------
+
+# Start Postgres, Redis, Keycloak, Mailpit and wait until they are healthy
+infra-up:
+    {{compose}} up -d --wait
+
+# Stop the infrastructure (data is kept)
+infra-down:
+    {{compose}} down
+
+# Stop the infrastructure AND delete all its data (databases are re-created next start)
+infra-reset:
+    {{compose}} down -v
+
+# Show container status
+infra-ps:
+    {{compose}} ps
+
+# Follow logs, e.g. `just infra-logs keycloak`
+infra-logs service="":
+    {{compose}} logs -f {{service}}
+
+
+# ---- account-service ---------------------------------------------------------
+
+# Install/refresh dependencies from pyproject.toml + uv.lock
+[working-directory: 'services/account/python-fastapi']
+account-sync:
+    uv sync
+
+# Run the service locally with auto-reload on http://localhost:8080/docs
+[working-directory: 'services/account/python-fastapi']
+account-run:
+    uv run uvicorn account.main:app --reload --port 8080
+
+# Auto-fix lint problems and format the code
+[working-directory: 'services/account/python-fastapi']
+account-fix:
+    uv run ruff check --fix
+    uv run ruff format
+
+# Everything CI will check: lint, formatting, types, tests
+[working-directory: 'services/account/python-fastapi']
+account-check:
+    uv run ruff check
+    uv run ruff format --check
+    uv run pyright
+    uv run pytest
+
+# Apply database migrations (needs infra up and services/account/python-fastapi/.env)
+[working-directory: 'services/account/python-fastapi']
+account-migrate:
+    uv run alembic upgrade head
+
+# Create a migration after editing models.py, e.g.: just account-migration "add bio column"
+[working-directory: 'services/account/python-fastapi']
+account-migration message:
+    uv run alembic revision --autogenerate -m "{{message}}"
+
+# Integration tests against the compose Postgres (run account-migrate first)
+[working-directory: 'services/account/python-fastapi']
+account-test-integration:
+    uv run pytest -m integration
+
+
+# ---- media-service ---------------------------------------------------------
+
+[working-directory('services/media/python-fastapi')]
+media-sync:
+    uv sync
+
+# Dev server on host port 8090 (account uses 8080). Needs `just infra-up` and `just media-migrate`.
+[working-directory('services/media/python-fastapi')]
+media-run:
+    uv run uvicorn media.main:app --reload --port 8090
+
+[working-directory('services/media/python-fastapi')]
+media-fix:
+    uv run ruff check --fix .
+    uv run ruff format .
+
+# Everything CI will check: lint, format, types, unit tests.
+[working-directory('services/media/python-fastapi')]
+media-check:
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run pyright
+    uv run pytest
+
+[working-directory('services/media/python-fastapi')]
+media-migrate:
+    uv run alembic upgrade head
+
+# Usage: just media-migration "add something"
+[working-directory('services/media/python-fastapi')]
+media-migration message:
+    uv run alembic revision --autogenerate -m "{{message}}"
+
+[working-directory('services/media/python-fastapi')]
+media-test-integration:
+    uv run pytest -m integration
+
+
+# ---- catalog-service ---------------------------------------------------------
+
+catalog_dir := "services/catalog/python-fastapi"
+
+catalog-sync:
+    uv sync --directory {{catalog_dir}}
+
+catalog-run:
+    uv run --directory {{catalog_dir}} uvicorn catalog.main:create_app --factory --reload --port 8082
+
+catalog-fix:
+    uv run --directory {{catalog_dir}} ruff check --fix src tests
+    uv run --directory {{catalog_dir}} ruff format src tests
+
+catalog-check:
+    uv run --directory {{catalog_dir}} ruff check src tests
+    uv run --directory {{catalog_dir}} ruff format --check src tests
+    uv run --directory {{catalog_dir}} pyright
+    uv run --directory {{catalog_dir}} pytest -q
+
+catalog-indexes:
+    uv run --directory {{catalog_dir}} python -m catalog.cli ensure-indexes
+
+catalog-test-integration:
+    uv run --directory {{catalog_dir}} pytest tests/integration -m integration -q
+
+
+# ---- notification-service ---------------------------------------------------------
+
+notification-sync:
+    uv --directory services/notification/python-fastapi sync
+
+notification-run port="8083":
+    uv --directory services/notification/python-fastapi run uvicorn notification.main:create_app --factory --reload --port {{port}}
+
+notification-fix:
+    uv --directory services/notification/python-fastapi run ruff check --fix .
+    uv --directory services/notification/python-fastapi run ruff format .
+
+notification-check:
+    uv --directory services/notification/python-fastapi run ruff check .
+    uv --directory services/notification/python-fastapi run ruff format --check .
+    uv --directory services/notification/python-fastapi run pyright
+    uv --directory services/notification/python-fastapi run pytest
+
+notification-test-integration:
+    uv --directory services/notification/python-fastapi run pytest -m integration

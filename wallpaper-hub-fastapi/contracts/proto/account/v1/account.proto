@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package wallpaperhub.account.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service AccountService {
+  rpc GetUser(GetUserRequest) returns (User);
+  // Batch lookup: feeds the GraphQL DataLoader in catalog-service (avoids N+1 calls).
+  rpc GetUsersByIds(GetUsersByIdsRequest) returns (GetUsersByIdsResponse);
+  // Server-streaming demo.
+  rpc ListUsersUpdatedSince(UpdatedSinceRequest) returns (stream User);
+}
+
+message GetUserRequest { string id = 1; }
+message GetUsersByIdsRequest { repeated string ids = 1; }
+message GetUsersByIdsResponse { repeated User users = 1; }
+message UpdatedSinceRequest { google.protobuf.Timestamp since = 1; }
+
+message User {
+  string id = 1;
+  string username = 2;
+  string display_name = 3;
+  string email = 4;
+  string locale = 5;
+  string avatar_url = 6;
+}

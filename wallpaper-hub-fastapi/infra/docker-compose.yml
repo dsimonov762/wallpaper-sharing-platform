@@ -1,0 +1,125 @@
+# Profiles (README section 13): infra | observability | apps
+# Only the `infra` profile exists so far. infra/.env sets COMPOSE_PROFILES=infra,
+# so a plain `docker compose up -d` starts it.
+name: wallpaperhub-python-docker
+
+services:
+# ACCOUNT SERVICE
+  postgres:
+    image: postgres:18.6-trixie
+    profiles: [infra]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?copy infra/.env.example to infra/.env}
+      # Read by postgres/init/01-create-databases.sh (first start only)
+      ACCOUNT_DB_PASSWORD: ${ACCOUNT_DB_PASSWORD:?}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql  # iin older versions `- postgres-data:/var/lib/postgresql/data`
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1 forces TCP: during first-time init Postgres only listens on a
+      # socket, so this stays "unhealthy" until the init scripts have really finished.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8.8.3-trixie
+    profiles: [infra]
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping 2>/dev/null | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    profiles: [infra]
+    restart: unless-stopped
+    # start-dev = development mode (HTTP, relaxed settings). Production uses
+    # `start --optimized` behind TLS; we switch when we reach the deployment phase.
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_HOSTNAME: http://localhost:8180
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak_svc
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8180:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # The Keycloak image has no curl, so we speak HTTP by hand to the management
+      # port (9000, not published) and check for "200" in the status line.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          read -r -t 5 line <&3 &&
+          case "$$line" in *" 200 "*) exit 0;; esac;
+          exit 1
+      interval: 10s
+      timeout: 8s
+      retries: 18
+      start_period: 40s
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    profiles: [infra]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025" # SMTP
+      - "127.0.0.1:8025:8025" # web UI
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+# CATALOG SERVICE
+  mongo:
+    image: mongo:8.3.11
+    profiles: [infra]
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in infra/.env}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in infra/.env}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  postgres-data:
+  redis-data:
+  mongo-data:

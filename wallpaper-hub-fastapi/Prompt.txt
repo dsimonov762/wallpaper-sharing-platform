@@ -1,0 +1,15 @@
+## 0. How to resume in a new chat (read first)
+
+1. Open a new chat. Attach the original design file `README.md` (the Wallpaper Hub reference design, about 800 lines) and paste this whole document.
+2. Paste the resume prompt below and fill in the two blanks.
+3. Share only what is needed: the exact error output, or the one file in question. Never paste the whole repository.
+4. When a chat gets long, ask: 'update the progress log in section 8 and give me a refreshed handoff'. Keep the refreshed version as your new plan.
+
+Resume prompt:
+
+```
+I am continuing the Wallpaper Hub project. Attached: README.md (original design). Pasted: PROJECT PLAN.
+Read plan sections 0-7 fully. Read README sections only when the current step cites them (for example 'README §7').
+Where we stopped: account Slice 3 steps 3.1 - 3.7 done (3.8 deferred); account Slice 4 step 4.1 (i18n) done; media-service slice M1 done; catalog-service slice C1 done; notification-service slice N1 done. Next step: account 4.2 (correlation id and logging), unless I say otherwise.
+First reply with a 5-line summary of what you understood, then continue with the next step using the delivery protocol in section 7.
+```

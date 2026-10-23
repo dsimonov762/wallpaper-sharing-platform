@@ -1,0 +1,32 @@
+{
+  // Pylance: type-checking level comes from [tool.pyright] in pyproject.toml,
+  // so the editor and CI (`uv run pyright`) always agree.
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
+
+  // Ruff is both linter and formatter. Pylance does not format, so there is no conflict.
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.ruff_cache": true,
+    "**/.pytest_cache": true
+  },
+  "files.associations": {
+    "*.avsc": "json",
+    "*.graphqls": "graphql",
+    "config.alloy": "hcl"
+  },
+  "python.terminal.useEnvFile": true
+}
